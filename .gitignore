@@ -6,4 +6,3 @@ raw_data/
 **/__pycache__/
 .env
 .python-version
-notebooks/
