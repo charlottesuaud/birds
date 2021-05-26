@@ -90,7 +90,7 @@ def full_spectro_generation(file_path, label, split=False,nfft=2048,window=256,s
     if audio_rate != TARGET_SAMPLE_RATE:
         tensor = resample_audio_tensor(tensor, audio_rate)
     if split==True:
-        tensor = split_tensor(tensor, audio_rate)
+        tensor = split_tensor(tensor)
     harmonizedtensor = harmonize_tensor_shape(tensor)
     spectrogram = generate_spectrogram(harmonizedtensor,nfft=nfft, window=window, stride=stride)
     return spectrogram, label
