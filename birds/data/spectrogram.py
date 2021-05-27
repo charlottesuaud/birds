@@ -82,9 +82,10 @@ def generate_spectrogram(file_path, label='label',                      # audio 
     audio_tensor = convert_audio_file_to_audio_tensor(file_path)            # Get Audio tensor from file
     tensor, input_rate = convert_to_tensor(audio_tensor)                    # Convert to tf.tensor
     if input_rate != output_rate:                                           # Resample to TARGET_SAMPLE_RATE
-        tensor = resample_audio_tensor(tensor, input_rate, output_rate)
+        tensor = resample_audio_tensor(
+            tensor, input_rate, output_rate=output_rate)
     if split==True:                                                         # Split to keep only first 10 sec.
-        tensor = split_tensor(tensor)
+        tensor = split_tensor(tensor, audio_rate=output_rate)
     harmonizedtensor = harmonize_tensor_shape(tensor)                       # Harmonize to get mono and float32 dtype tensor
 
     spectrogram = tfio.audio.spectrogram(                                   # Generate spectrogram
