@@ -1,9 +1,10 @@
 import tensorflow as tf
+from tensorflow.python.ops.signal import spectral_ops
 import tensorflow_io as tfio
 import numpy as np
 
-TARGET_SAMPLE_RATE = 44_100
 
+TARGET_SAMPLE_RATE = 16_000
 TARGET_SPLIT_DURATION_SEC = 10 # For optional call to function split tensor
 
 
@@ -13,7 +14,8 @@ def convert_audio_file_to_audio_tensor(filepath):
     Input : file path
     Output : AudioTensor
     '''
-    return tfio.audio.AudioIOTensor(filepath)
+    return tfio.audio.AudioIOTensor(filepath, dtype='float32')
+
 
 def convert_to_tensor(audio):
     '''
@@ -24,103 +26,128 @@ def convert_to_tensor(audio):
     return audio[:], audio.rate.numpy()
 
 
-# Optional if audio sampling rate != 44,1  kHz
-def resample_audio_tensor(tensor, input_audio_rate):
+def resample_audio_tensor(tensor, input_rate, output_rate=TARGET_SAMPLE_RATE):
     '''
-    Objective : resample audio file to 44_100 hz
-    Input : tf.Tensor and original audio sample rate (Hz - int)
-    Output : tf.Tensor resampled in 44_100 hz
+    Objective : resample audio file to 16_000 hz
+    Input : tf.Tensor, original audio sample rate (Hz - int), output rate
+    Output : tf.Tensor resampled in 16_000 hz
     '''
-    return tfio.audio.resample(tensor, input_audio_rate, TARGET_SAMPLE_RATE, name=None)
+    
+    return tfio.audio.resample(tensor, input_rate, output_rate, name=None)
 
 
 # Optional
-def split_tensor(tensor,audio_rate=TARGET_SAMPLE_RATE):
+def split_tensor(tensor, audio_rate=TARGET_SAMPLE_RATE):
     '''
-    Objective : split to keep only 441 k datapoints (10 seconds with audio sample rate 44k)
+    Objective : split to keep only 160 k datapoints (10 seconds with audio sample rate 16k)
     Input : tf.Tensor, audio sample rate
     Output : tf.Tensor
     '''
     # Get split index adequate to audio rate
     split_index = audio_rate * TARGET_SPLIT_DURATION_SEC
+    
     # Split if audio length > split_index
     if tensor.shape[0] > split_index :
         return tensor[:split_index]
     return tensor[:]
 
-def harmonize_tensor_shape(audio):
+def harmonize_tensor_shape(tensor):
     '''
     Objective : Harmonize tensor shape and dtype of audio to shape (x,),dtype=float32
     Input : tf.Tensor shape (x,2) stereo or (x,1) mono
     Output : tf.Tensor shape(x,)
     '''
+    
     # Convert to float32 dtype if necessary
-    if audio.dtype == tf.int16 :
-        audio = tf.cast(audio, tf.float32) / 32768.0
-    # Convert stero to mono if adequate :
-    if audio.shape[1] == 2 :
-        return tf.reduce_mean(audio, 1)
-    # Remove last dimension if mono sound
-    return tf.squeeze(audio, axis=[-1])
+    # if tensor.dtype == tf.int16 :
+    #     tensor = tf.cast(tensor, tf.float32) / 32768.0
+        
+    if tensor.shape[1] == 2 :                               # If stereo, convert to mono 
+        return tf.reduce_mean(tensor, 1)                    # and remove last dimension
+    
+    return tf.squeeze(tensor, axis=[-1])                    # If mono, remove last dimension
 
 
-def generate_spectrogram(audio,nfft=2048,window=256,stride=256):
-    '''
-    Objective : Generate spectrogram
-    Input : Audio tf.Tensor shape(x,)
-    Ouput : Spectrogram tf.Tensor shape (x,y)
-    '''
-    spectrogram = tfio.audio.spectrogram(
-        audio,
-        nfft=nfft,
-        window=window,
-        stride=stride)
-    return tf.transpose(spectrogram, perm=[1, 0]) 
-    # On transpose pour avoir une shape similaire à celle de librosa en sortie
 
-
-def full_spectro_generation(file_path, label, split=False,nfft=2048,window=256,stride=256):
+def generate_spectrogram(file_path, label='label',                      # audio file params
+                         split=True, output_rate=TARGET_SAMPLE_RATE,    # preprocessing params  
+                         transpose=True,                                # output params
+                         nfft=2048, window=256, stride=256):            # spectrogram params
     '''
     Objective : Generate spectrogram from an audio file path
     Input : file_path , label = integer between 0 and 49
-    Ouput : Spectrogram tf.Tensor shape (x,y)
+    Ouput : Spectrogram tf.Tensor shape (x,y), harmonizedtensor, label, input_rate, output_rate
     '''    
-    audio_tensor = convert_audio_file_to_audio_tensor(file_path)
-    tensor, audio_rate = convert_to_tensor(audio_tensor)
-    if audio_rate != TARGET_SAMPLE_RATE:
-        tensor = resample_audio_tensor(tensor, audio_rate)
-    if split==True:
+    
+    audio_tensor = convert_audio_file_to_audio_tensor(file_path)            # Get Audio tensor from file
+    tensor, input_rate = convert_to_tensor(audio_tensor)                    # Convert to tf.tensor
+    if input_rate != output_rate:                                           # Resample to TARGET_SAMPLE_RATE
+        tensor = resample_audio_tensor(tensor, input_rate, output_rate)
+    if split==True:                                                         # Split to keep only first 10 sec.
         tensor = split_tensor(tensor)
-    harmonizedtensor = harmonize_tensor_shape(tensor)
-    spectrogram = generate_spectrogram(harmonizedtensor,nfft=nfft, window=window, stride=stride)
-    return spectrogram, label
+    harmonizedtensor = harmonize_tensor_shape(tensor)                       # Harmonize to get mono and float32 dtype tensor
+
+    spectrogram = tfio.audio.spectrogram(                                   # Generate spectrogram
+        harmonizedtensor,
+        nfft=nfft,
+        window=window,
+        stride=stride)
+    
+    if transpose == True:                                                   # Transpose output if asked
+        spectrogram = tf.transpose(spectrogram, perm=[1, 0])
+    
+    return spectrogram, harmonizedtensor, label, input_rate, output_rate
 
 
-def generate_mel_spectrogram(spectrogram,rate=TARGET_SAMPLE_RATE, mels=128, fmin=0, fmax=8000):
+def generate_mel_spectrogram(file_path, label='label',                                  # audio file params
+                             split=True, output_rate=TARGET_SAMPLE_RATE,                # preprocessing params
+                             transpose=True,                                            # output params
+                             nfft=2048, window=256, stride=256,                         # spectrogram params
+                             rate=TARGET_SAMPLE_RATE, mels=128, fmin=0, fmax=8000):     # mel spectrogram params
     '''
-    Objective : Convert to mel spectrogram
-    Input : Spectrogram tf.Tensor shape (x,y)
-    Ouput : Spectrogram tf.Tensor shape (x,y)
+    Objective : Generate mel spectrogram from an audio file path
+    Input : file_path , label = integer between 0 and 49
+    Ouput : Spectrogram tf.Tensor shape (x,y), harmonizedtensor, label, input_rate, output_rate
     '''
-    mel_spectrogram = tfio.audio.melscale(
-        spectrogram,
-        rate=rate,
-        mels=mels,
-        fmin=fmin,
-        fmax=fmax)
-    return mel_spectrogram
+    
+    spectrogram, harmonizedtensor, label, input_rate, output_rate = generate_spectrogram(     # Generate non transposed spectrogram
+        file_path, label=label, split=split, output_rate=output_rate,
+        transpose=False,
+        nfft=nfft, window=window, stride=stride)
+    
+    mel_spectrogram = tfio.audio.melscale(spectrogram,                                          # Convert to mel_spectrogram
+                                          rate=rate, mels=mels, fmin=fmin,fmax=fmax)
+    
+    if transpose == True:                                                                       # Transpose output if asked
+        mel_spectrogram = tf.transpose(mel_spectrogram, perm=[1, 0])
+
+    return mel_spectrogram, harmonizedtensor, label, input_rate, output_rate
 
 
-def generate_db_scale_mel_spectrogram(mel_spectrogram, top_db=80):
+def generate_db_scale_mel_spectrogram(file_path, label='label', split=True,                     # audio file params
+                                      transpose=True,                                           # output params
+                                      nfft=2048, window=256, stride=256,                        # spectrogram params
+                                      rate=TARGET_SAMPLE_RATE, mels=128, fmin=0, fmax=8000,     # mel spectrogram params
+                                      top_db=80):                                               # db scale mel spectrogram params
     '''
-    Objective : Convert to db scale spectrogram
-    Input : Spectrogram tf.Tensor shape (x,y)
-    Ouput : Spectrogram tf.Tensor shape (x,y)
+    Objective : Generate db scale mel spectrogram from an audio file path
+    Input : file_path , label = integer between 0 and 49
+    Ouput : Spectrogram tf.Tensor shape (x,y), harmonizedtensor, label, input_rate, output_rate
     '''
-    db_scale_mel_spectrogram = tfio.audio.dbscale(
-        mel_spectrogram,
-        top_db=top_db)
-    return db_scale_mel_spectrogram
+    
+    mel_spectrogram, harmonizedtensor, label, input_rate, output_rate = generate_mel_spectrogram(     # Generate non transposed mel spectrogram
+        file_path, label=label, split=split,
+        transpose=False,
+        nfft=nfft, window=window, stride=stride,
+        rate=rate, mels=mels, fmin=fmin, fmax=fmax)
+    
+    db_scale_mel_spectrogram = tfio.audio.dbscale(mel_spectrogram,                              # Convert to db scale mel spectrogram
+                                                  top_db=top_db)
+    
+    if transpose == True:                                                                       # Transpose output if asked
+        db_scale_mel_spectrogram = tf.transpose(db_scale_mel_spectrogram, perm=[1, 0])
+    
+    return db_scale_mel_spectrogram, harmonizedtensor, label, input_rate, output_rate
 
 
 if __name__=="__main__":
@@ -135,11 +162,11 @@ if __name__=="__main__":
     assert split.shape[0] == 441000
     harmonizedtensor = harmonize_tensor_shape(split)
     assert harmonizedtensor.shape[0] == 441000
-    spectrogram = generate_spectrogram(harmonizedtensor)
-    mel_spectrogram = generate_mel_spectrogram(spectrogram)
-    db_scale_mel_spectrogram = generate_db_scale_mel_spectrogram(mel_spectrogram)
+    spectrogram, harmonizedtensor, label, input_rate, output_rate = generate_spectrogram(file_path)
+    mel_spectrogram, harmonizedtensor, label, input_rate, output_rate = generate_mel_spectrogram(file_path)
+    db_scale_mel_spectrogram, harmonizedtensor, label, input_rate, output_rate = generate_db_scale_mel_spectrogram(file_path)
     
     # Test full intégré
     label = 2
-    spectro, label2  = full_spectro_generation(file_path, label, split=True)
+    spectro, harmonizedtensor, label2, input_rate, output_rate  = generate_spectrogram(file_path, label)
     assert label2 == 2
