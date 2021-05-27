@@ -125,7 +125,8 @@ def generate_mel_spectrogram(file_path, label='label',                          
     return mel_spectrogram, harmonizedtensor, label, input_rate, output_rate
 
 
-def generate_db_scale_mel_spectrogram(file_path, label='label', split=True,                     # audio file params
+def generate_db_scale_mel_spectrogram(file_path, label='label',                                 # audio file params
+                                      split=True, output_rate=TARGET_SAMPLE_RATE,               # preprocessing params
                                       transpose=True,                                           # output params
                                       nfft=2048, window=256, stride=256,                        # spectrogram params
                                       rate=TARGET_SAMPLE_RATE, mels=128, fmin=0, fmax=8000,     # mel spectrogram params
@@ -137,7 +138,8 @@ def generate_db_scale_mel_spectrogram(file_path, label='label', split=True,     
     '''
     
     mel_spectrogram, harmonizedtensor, label, input_rate, output_rate = generate_mel_spectrogram(     # Generate non transposed mel spectrogram
-        file_path, label=label, split=split,
+        file_path, label=label,
+        split=split, output_rate=output_rate,
         transpose=False,
         nfft=nfft, window=window, stride=stride,
         rate=rate, mels=mels, fmin=fmin, fmax=fmax)
