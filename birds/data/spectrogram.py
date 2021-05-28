@@ -8,7 +8,6 @@ TARGET_SAMPLE_RATE = 16_000
 TARGET_SPLIT_DURATION_SEC = 10 
 
 
-@tf.function
 def generate_tensor(file_path, label, 
                     split=True, output_rate=TARGET_SAMPLE_RATE):
     '''
@@ -45,7 +44,6 @@ def generate_tensor(file_path, label,
     return tensor, label, input_rate, output_rate
 
 
-@tf.function
 def generate_spectrogram(file_path, label,
                          split=True, output_rate=TARGET_SAMPLE_RATE,  
                          transpose=True,
@@ -69,7 +67,6 @@ def generate_spectrogram(file_path, label,
     return spectrogram, label
 
 
-@tf.function
 def generate_mel_spectrogram(file_path, label,
                              split=True, output_rate=TARGET_SAMPLE_RATE,
                              transpose=True,
@@ -95,7 +92,6 @@ def generate_mel_spectrogram(file_path, label,
     return mel_spectrogram, label
 
 
-@tf.function
 def generate_db_scale_mel_spectrogram(file_path, label,
                                       split=True, output_rate=TARGET_SAMPLE_RATE,
                                       transpose=True,
