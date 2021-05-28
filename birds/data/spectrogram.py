@@ -64,6 +64,9 @@ def generate_spectrogram(file_path, label,
     if transpose == True:
         spectrogram = tf.transpose(spectrogram, perm=[1, 0])
     
+    # 4 - Expand dim to get channel dimension
+    spectrogram = tf.expand_dims(spectrogram, axis=-1)
+    
     return spectrogram, label
 
 
@@ -78,17 +81,22 @@ def generate_mel_spectrogram(file_path, label,
     Ouput : Spectrogram tf.Tensor shape (x,y), label
     '''
     
-    # 1 - Generate non transposed spectrogram from file path
-    spectrogram, label = generate_spectrogram(file_path, label, split=split, output_rate=output_rate,
-                                              transpose=False, nfft=nfft, window=window, stride=stride)
+    # 1 - Generate tensor from file path
+    tensor, label, input_rate, output_rate = generate_tensor(file_path, label, split=split, output_rate=output_rate)
+
+    # 2 - Generate spectrogram
+    spectrogram = tfio.audio.spectrogram(tensor, nfft=nfft, window=window, stride=stride)
     
-    # 2 - Convert to mel spectrogram
+    # 3 - Convert to mel spectrogram
     mel_spectrogram = tfio.audio.melscale(spectrogram, rate=rate, mels=mels, fmin=fmin,fmax=fmax)
     
-    # 3 - Transpose output if asked
+    # 4 - Transpose output if asked
     if transpose == True:
         mel_spectrogram = tf.transpose(mel_spectrogram, perm=[1, 0])
 
+    # 5 - Expand dim to get channel dimension
+    mel_spectrogram = tf.expand_dims(mel_spectrogram, axis=-1)
+    
     return mel_spectrogram, label
 
 
@@ -104,17 +112,24 @@ def generate_db_scale_mel_spectrogram(file_path, label,
     Ouput : Spectrogram tf.Tensor shape (x,y), label
     '''
     
-    # 1 - Generate non transposed mel spectrogram from file path
-    mel_spectrogram, label = generate_mel_spectrogram(file_path, label, split=split, output_rate=output_rate,
-                                                      transpose=False, nfft=nfft, window=window, stride=stride,
-                                                      rate=rate, mels=mels, fmin=fmin,fmax=fmax)
+    # 1 - Generate tensor from file path
+    tensor, label, input_rate, output_rate = generate_tensor(file_path, label, split=split, output_rate=output_rate)
+
+    # 2 - Generate spectrogram
+    spectrogram = tfio.audio.spectrogram(tensor, nfft=nfft, window=window, stride=stride)
     
-    # 2 - Convert to db scale mel spectrogram
+    # 3 - Convert to mel spectrogram
+    mel_spectrogram = tfio.audio.melscale(spectrogram, rate=rate, mels=mels, fmin=fmin,fmax=fmax)
+    
+    # 4 - Convert to db scale mel spectrogram
     db_scale_mel_spectrogram = tfio.audio.dbscale(mel_spectrogram, top_db=top_db)
     
-    # 3 - Transpose output if asked
+    # 5 - Transpose output if asked
     if transpose == True:
         db_scale_mel_spectrogram = tf.transpose(db_scale_mel_spectrogram, perm=[1, 0])
+    
+    # 6 - Expand dim to get channel dimension
+    db_scale_mel_spectrogram = tf.expand_dims(db_scale_mel_spectrogram, axis=-1)
     
     return db_scale_mel_spectrogram, label
 
