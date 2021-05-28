@@ -134,6 +134,12 @@ def generate_db_scale_mel_spectrogram(file_path, label,
     return db_scale_mel_spectrogram, label
 
 
+def one_hot_encode_target(spectrogram, label):
+    depth = 50
+    ohe_label = tf.one_hot(label, depth)
+    return spectrogram, ohe_label
+
+
 if __name__=="__main__":
     
     # Test generate_spectrogram
