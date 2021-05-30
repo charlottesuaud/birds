@@ -6,7 +6,46 @@ AUTOTUNE = tf.data.experimental.AUTOTUNE
 BATCH_SIZE = 32
 BUFFER_SIZE = 10
 
-# 1 - Create full dataset
+# 1 - Create train and val dataframes listing files and targets
+
+def create_df_train_df_val_from_directory(directory, sound_filetype = 'ogg',train_val_ratio = 0.8):
+    '''
+    Objective : Generate two data frames (train and val) with list of audio files and associated target number,
+                taking into account potential class imbalances
+    Inputs : directory :  file directory containing audio files
+             sound_file_type : by default ogg
+             train_val_ratio : ratio used to split between training and validation data
+    Output : train and val dataframes
+    '''
+    
+    # create dataframe with directory audio file list, target names derived from files name and target number
+    data = pd.DataFrame(sorted([file for file in os.listdir(directory) if file.endswith(sound_filetype)])
+                        ,columns=['Path'])
+    data['Target_name'] = data['Path'].apply(lambda x : '-'.join(x.split(sep='-')[0:2]))
+    target_list = list(pd.unique(data['Target_name']))
+    data['Target'] = data['Target_name'].apply(lambda x: target_list.index(x))
+    
+    
+    # create intermediate dataframe to calculate split indexes by target using train_val_ratio
+    subdf_count_by_target = pd.pivot_table(data,index=['Target_name'],aggfunc={'Target' : 'count'})\
+                                            .rename(columns={'Target':'target_size'})
+    subdf_cummul_sum_by_target = data.groupby(by=['Target_name']).sum()\
+                                            .rename(columns={'Target':'start_index'})
+    split_index_df = subdf_count_by_target.merge(subdf_cummul_sum_by_target, left_index=True, right_index=True)
+    split_index_df['split_index'] = split_index_df['start_index']+round(train_val_ratio*split_index_df['target_size'])
+    print(split_index_df.head())
+    
+    # create train and val from first dataframe using indexes calculated in split_index_df
+    df_train = data.iloc[0:0]
+    for target in list(pd.unique(data['Target_name'])):
+        start_index = int(split_index_df.loc[target].start_index)
+        split_index = int(split_index_df.loc[target].split_index)
+        df_train = df_train.append(data.iloc[start_index:split_index])
+    
+    df_val = pd.concat([data,df_train]).drop_duplicates(keep=False)
+    
+    return df_train, df_val
+
 
 def create_dataset(directory,
                    spectro_type='mel',
