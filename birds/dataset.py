@@ -1,3 +1,4 @@
+import os
 import tensorflow as tf
 import pandas as pd
 from birds.preproc import generate_spectrogram, generate_mel_spectrogram, generate_db_scale_mel_spectrogram, one_hot_encode_target
@@ -5,6 +6,58 @@ from birds.preproc import generate_spectrogram, generate_mel_spectrogram, genera
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 BATCH_SIZE = 32
 BUFFER_SIZE = 10
+
+TARGET_DICT = {'Sonus naturalis': 0,
+               'Fringilla coelebs': 1,
+               'Parus major': 2,
+               'Turdus merula': 3,
+               'Turdus philomelos': 4,
+               'Sylvia communis': 5,
+               'Emberiza citrinella': 6,
+               'Sylvia atricapilla': 7,
+               'Emberiza calandra': 8,
+               'Phylloscopus trochilus': 9,
+               'Luscinia megarhynchos': 10,
+               'Strix aluco': 11,
+               'Phylloscopus collybita': 12,
+               'Carduelis carduelis': 13,
+               'Erithacus rubecula': 14,
+               'Chloris chloris': 15,
+               'Sylvia borin': 16,
+               'Acrocephalus arundinaceus': 17,
+               'Acrocephalus dumetorum': 18,
+               'Oriolus oriolus': 19,
+               'Troglodytes troglodytes': 20,
+               'Bubo bubo': 21,
+               'Ficedula parva': 22,
+               'Linaria cannabina': 23,
+               'Luscinia svecica': 24,
+               'Alauda arvensis': 25,
+               'Luscinia luscinia': 26,
+               'Phoenicurus phoenicurus': 27,
+               'Aegolius funereus': 28,
+               'Cyanistes caeruleus': 29,
+               'Hirundo rustica': 30,
+               'Emberiza cirlus': 31,
+               'Locustella naevia': 32,
+               'Cuculus canorus': 33,
+               'Sylvia curruca': 34,
+               'Loxia curvirostra': 35,
+               'Emberiza hortulana': 36,
+               'Carpodacus erythrinus': 37,
+               'Athene noctua': 38,
+               'Crex crex': 39,
+               'Acrocephalus schoenobaenus': 40,
+               'Acrocephalus palustris': 41,
+               'Periparus ater': 42,
+               'Phylloscopus sibilatrix': 43,
+               'Emberiza schoeniclus': 44,
+               'Hippolais icterina': 45,
+               'Pyrrhula pyrrhula': 46,
+               'Caprimulgus europaeus': 47,
+               'Ficedula hypoleuca': 48,
+               'Glaucidium passerinum': 49}
+
 
 # 1 - Create train and val dataframes listing files and targets
 
@@ -17,14 +70,13 @@ def create_df_train_df_val_from_directory(directory, sound_filetype = 'ogg',trai
              train_val_ratio : ratio used to split between training and validation data
     Output : train and val dataframes
     '''
-    
     # create dataframe with directory audio file list, target names derived from files name and target number
     data = pd.DataFrame(sorted([file for file in os.listdir(directory) if file.endswith(sound_filetype)])
                         ,columns=['Path'])
-    data['Target_name'] = data['Path'].apply(lambda x : '-'.join(x.split(sep='-')[0:2]))
+    data['Target_name'] = data['Path'].apply(lambda x : ' '.join(x.split(sep='-')[0:2]))
     target_list = list(pd.unique(data['Target_name']))
-    data['Target'] = data['Target_name'].apply(lambda x: target_list.index(x))
-    
+    # data['Target'] = data['Target_name'].apply(lambda x: target_list.index(x))
+    data['Target'] = data['Target_name'].map(TARGET_DICT) # On récupère les numéros de classe originaux
     
     # create intermediate dataframe to calculate split indexes by target using train_val_ratio
     subdf_count_by_target = pd.pivot_table(data,index=['Target_name'],aggfunc={'Target' : 'count'})\
@@ -41,13 +93,17 @@ def create_df_train_df_val_from_directory(directory, sound_filetype = 'ogg',trai
         start_index = int(split_index_df.loc[target].start_index)
         split_index = int(split_index_df.loc[target].split_index)
         df_train = df_train.append(data.iloc[start_index:split_index])
-    
+
     df_val = pd.concat([data,df_train]).drop_duplicates(keep=False)
+    
+    df_train = df_train.reset_index(drop=True)
+    df_val = df_val.reset_index(drop=True)
     
     return df_train, df_val
 
+# 2 - create datasets
 
-def create_dataset(directory,
+def create_train_val_datasets(directory,
                    spectro_type='mel',
                    batch_size=BATCH_SIZE,buffer_size=BUFFER_SIZE):
     '''
@@ -59,70 +115,51 @@ def create_dataset(directory,
              buffer_size:   Shuffling parameter. Default value is 10.
     Output : PrefetchDataset
     '''
+    # 1 - Get val and train files
+    df_train, df_val = create_df_train_df_val_from_directory(directory)
+    file_paths_train = directory + df_train['Path'].values
+    labels_train = df_train['Target'].values
+    file_paths_val = directory + df_val['Path'].values
+    labels_val = df_val['Target'].values   
 
-    # 1 - Reading y_train.csv
-    df = pd.read_csv(directory + 'y_train.csv')
-    file_paths = directory + df['Path'].values
-    labels = df['Target'].values
-
-    # 2 - Create dataset from y_train.csv
-    ds_train = tf.data.Dataset.from_tensor_slices((file_paths, labels)) 
+    # 2 - Create datasets ds_train and ds_val
+    ds_train = tf.data.Dataset.from_tensor_slices((file_paths_train, labels_train))
+    ds_val = tf.data.Dataset.from_tensor_slices((file_paths_val, labels_val)) 
 
     # 3 - Generate spectrogram from path colum 
     if spectro_type == 'mel':
         ds_train = ds_train.map(generate_mel_spectrogram)
+        ds_val = ds_val.map(generate_mel_spectrogram)
     elif spectro_type == 'spectro':
         ds_train = ds_train.map(generate_spectrogram)
+        ds_val = ds_val.map(generate_spectrogram)
+        
     elif spectro_type == 'db':
         ds_train = ds_train.map(generate_db_scale_mel_spectrogram)
+        ds_val = ds_val.map(generate_db_scale_mel_spectrogram)
     else :
         print('Choose correct spectro type between mel spectro db')
     print(ds_train)
 
     # 4 - One hot encode target
     ds_train = ds_train.map(one_hot_encode_target)
+    ds_val = ds_val.map(one_hot_encode_target)
     print(ds_train)
 
     # 5 - Generate ds_train
     ds_train = ds_train.cache()
-    ds_train = ds_train.shuffle(buffer_size,reshuffle_each_iteration=False)
-    # The parameter reshuffle_each_iteration=False is important for train / val split afterwards.
-    # It makes sure the original dataset is shuffled once and no more. Otherwise, the two resulting sets may have some overlaps.
+    ds_val = ds_val.cache()
+    ds_train = ds_train.shuffle(buffer_size)
+    ds_val = ds_val.shuffle(buffer_size)
     ds_train = ds_train.batch(batch_size, num_parallel_calls=AUTOTUNE)
+    ds_val = ds_val.batch(batch_size, num_parallel_calls=AUTOTUNE)
     ds_train = ds_train.prefetch(AUTOTUNE)
+    ds_val = ds_val.prefetch(AUTOTUNE)
     
-    return ds_train
-
-
-# 2 Splitting the dataset for training and testing.
-
-def is_test(x, _):
-    return x % 4 == 0
-# x % 4 == 0 takes 1 sample out of for (75% train/val split ratio). Likewise, x % 5 == 0 would achieve 80% split ratio. 
-
-def is_train(x, y):
-    return not is_test(x, y)
-
-recover = lambda x, y: y
-# delaring lambda separately to avoid AutoGraph limitations in TF 2.0 and above.
-
-def split_train_val_dataset(dataset):
-    # Split the dataset for training.
-    val_dataset = dataset.enumerate() \
-                .filter(is_test) \
-                .map(recover)
-    print(val_dataset)
-
-    # Split the dataset for testing/validation.
-    train_dataset = dataset.enumerate() \
-                .filter(is_train) \
-                .map(recover)
-    print(train_dataset)
-    return train_dataset, val_dataset
-
-
+    return ds_train, ds_val
 
 if __name__=="__main__":
     directory = 'raw_data/data_10s/train/'
-    ds_train = create_dataset(directory)
+    ds_train, ds_val = create_train_val_datasets(directory)
+    
     print(ds_train)
