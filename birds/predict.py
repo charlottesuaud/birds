@@ -80,7 +80,7 @@ def generate_mel_spectrogram_prediction(file_path,
     output_rate = np.int64(output_rate)
     tensor = tfio.audio.resample(tensor, input_rate, output_rate, name=None)
 
-    ## d) pad if too short - TODO
+    ## d) pad if too short -> not necessary
     
     ## e) split if too long
     split_index = output_rate * TARGET_SPLIT_DURATION_SEC
