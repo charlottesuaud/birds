@@ -2,6 +2,8 @@ import tensorflow_io as tfio
 import numpy as np
 import tensorflow as tf
 
+model = tf.keras.models.load_model('model/model_densenet169_v1')
+
 TARGET_SAMPLE_RATE = 16_000
 TARGET_SPLIT_DURATION_SEC = 10
 
@@ -134,3 +136,10 @@ def get_top_predictions_dict(spectrogram, model):
     dico_top3 = dict(zip(top3_pred_names,top3_pred_values))
     
     return dico_top3
+
+if __name__=="__main__":
+    filepath = 'raw_data/data_10s/test/Hirundo-rustica-157282_tens.ogg'
+    model = tf.keras.models.load_model('model/model_densenet169_v1')
+    spectrogram = generate_mel_spectrogram_prediction(filepath)
+    dico_pred = get_top_predictions_dict(spectrogram, model)
+    print(dico_pred)
