@@ -7,7 +7,8 @@ wheel>=0.29
 # data science
 numpy
 pandas
-scikit-learn
+tensorflow
+tensorflow_io
 
 # tests/linter
 black
@@ -19,8 +20,10 @@ yapf
 # API
 gcsfs
 google-cloud-storage
-mlflow
 s3fs
+fastapi
+uvicorn
+python-multipart
 
 # utilities
 six>=1.14

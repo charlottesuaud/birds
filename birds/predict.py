@@ -2,8 +2,6 @@ import tensorflow_io as tfio
 import numpy as np
 import tensorflow as tf
 
-model = tf.keras.models.load_model('model/model_densenet169_v1')
-
 TARGET_SAMPLE_RATE = 16_000
 TARGET_SPLIT_DURATION_SEC = 10
 
@@ -61,7 +59,7 @@ TARGET_DICT = {'Sonus naturalis': 0,
 REVERSE_DICT = {value : key for (key, value) in TARGET_DICT.items()}
 
 def generate_mel_spectrogram_prediction(file_path, 
-                                    split=True, output_rate=TARGET_SAMPLE_RATE,
+                                    output_rate=TARGET_SAMPLE_RATE,
                                     transpose=True,
                                     nfft=400, window=400, stride=100,                      # spectrogram params
                                     rate=TARGET_SAMPLE_RATE, mels=128, fmin=0, fmax=8000): # mel spectrogram params
@@ -84,7 +82,7 @@ def generate_mel_spectrogram_prediction(file_path,
 
     ## d) pad if too short -> not necessary
     
-    ## e) split if too long
+    ## e) split systématique à 10sec car c'est la durée d'entraînement
     split_index = output_rate * TARGET_SPLIT_DURATION_SEC
     tensor = tensor[:split_index]
 
@@ -137,9 +135,16 @@ def get_top_predictions_dict(spectrogram, model):
     
     return dico_top3
 
+
+def get_model(path_to_model):
+    model = tf.keras.models.load_model(path_to_model)
+    return model
+
+
 if __name__=="__main__":
+    path_to_model = 'model/model_densenet169_v1'
     filepath = 'raw_data/data_10s/test/Hirundo-rustica-157282_tens.ogg'
-    model = tf.keras.models.load_model('model/model_densenet169_v1')
+    model = get_model(path_to_model)
     spectrogram = generate_mel_spectrogram_prediction(filepath)
     dico_pred = get_top_predictions_dict(spectrogram, model)
     print(dico_pred)
