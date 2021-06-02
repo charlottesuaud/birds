@@ -7,15 +7,13 @@ wheel>=0.29
 # data science
 numpy
 pandas
+scikit-learn
 tensorflow
 tensorflow_io
 
-# tests/linter
-black
-coverage
-flake8
-pytest
-yapf
+# data viz
+matplotlib
+ipywidgets
 
 # API
 gcsfs
@@ -24,9 +22,17 @@ s3fs
 fastapi
 uvicorn
 python-multipart
+pytest-shutil
 
 # utilities
 six>=1.14
 joblib
 memoized-property
 termcolor
+
+# tests/linter
+black
+coverage
+flake8
+pytest
+yapf
