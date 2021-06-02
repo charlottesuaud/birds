@@ -8,6 +8,27 @@ wheel>=0.29
 numpy
 pandas
 scikit-learn
+tensorflow
+tensorflow_io
+
+# data viz
+matplotlib
+ipywidgets
+
+# API
+gcsfs
+google-cloud-storage
+s3fs
+fastapi
+uvicorn
+python-multipart
+pytest-shutil
+
+# utilities
+six>=1.14
+joblib
+memoized-property
+termcolor
 
 # tests/linter
 black
@@ -15,15 +36,3 @@ coverage
 flake8
 pytest
 yapf
-
-# API
-gcsfs
-google-cloud-storage
-mlflow
-s3fs
-
-# utilities
-six>=1.14
-joblib
-memoized-property
-termcolor

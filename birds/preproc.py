@@ -166,3 +166,7 @@ if __name__=="__main__":
     dataset = dataset.batch(1)
     
     print(next(iter(dataset)))
+    
+    
+def convert_gray_rgb(image, label):
+    return tf.image.grayscale_to_rgb(image) ,label
