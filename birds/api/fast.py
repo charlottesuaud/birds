@@ -3,7 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from birds.predict import generate_mel_spectrogram_prediction, get_top_predictions_dict, get_model
 
+import shutil
+
 app = FastAPI()
+model = get_model('model/model_densenet169_v1') # load model when starting API to avoid waiting at each prediction
 
 app.add_middleware(
     CORSMiddleware,
@@ -16,34 +19,22 @@ app.add_middleware(
 def index():
     return {"ok": True}
 
-@app.get("/predict")
-def predict(audiofile_path):
-    
-    # Generate mel spectrogram and get model
-    spectrogram = generate_mel_spectrogram_prediction(audiofile_path)
-    model = get_model('model/model_densenet169_v1')
-    
-    # Get predictions and return top 3 predictions
-    dict_predict = get_top_predictions_dict(spectrogram, model)
-    
-    return dict_predict
-
-@app.post("/files/")
-async def create_file(file: bytes = File(...)):
-    return {"file_size": len(file)}
-
 
 @app.post("/uploadfile/")
 async def create_upload_file(file: UploadFile = File(...)):
-    # Generate mel spectrogram and get model
-    spectrogram = generate_mel_spectrogram_prediction(file.filename)
-    model = get_model('model/model_densenet169_v1')
+    
+    # Create generic 'ouput' + extension filename to avoid writing too many files on disk
+    # As model can handle severeal audio file types we retrieve the extension form provided filename
+    filename = 'output.' + str(file.filename)[-3:]
+    print(filename)
+    with open(filename,'wb') as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Generate mel spectrogram
+    spectrogram = generate_mel_spectrogram_prediction(filename)
     
     # Get predictions and return top 3 predictions
     dict_predict = get_top_predictions_dict(spectrogram, model)
     
-    return dict_predict
-
-if __name__=="__main__":
-    dict_predict = predict('raw_data/data_10s/test/Hirundo-rustica-157282_tens.ogg')
-    print(dict_predict)
+    # FastApi can only manage python object and prediction were np.float32 so we convert back to python float in ouput dictionnary
+    return { k:float(v) for k, v in dict_predict.items() }
