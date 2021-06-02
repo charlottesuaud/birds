@@ -71,20 +71,24 @@ def generate_mel_spectrogram_prediction(file_path,
     # 1 - Generate tensor from file path
     ## a) create AudioTensor
     audio_tensor = tfio.audio.AudioIOTensor(file_path, dtype='float32')
+    print(f'Audio tensor generated : shape {audio_tensor.shape}')
 
     ## b) convert AudioTensor to tf Tensor and get rate
     tensor = audio_tensor.to_tensor()
     input_rate = tf.cast(audio_tensor.rate, tf.int64)
+    print(f'Audio tensor converted to tensor : shape {tensor.shape}')
 
     ## c) resample to output_rate
     output_rate = np.int64(output_rate)
     tensor = tfio.audio.resample(tensor, input_rate, output_rate, name=None)
+    print(f'Tensor resampled : shape {tensor.shape}')
 
     ## d) pad if too short -> not necessary
     
     ## e) split systématique à 10sec car c'est la durée d'entraînement
     split_index = output_rate * TARGET_SPLIT_DURATION_SEC
     tensor = tensor[:split_index]
+    print(f'Tensor splited at 10s : shape {tensor.shape}')
 
     ## f) harmonize tensor shape
     if tensor.dtype == tf.int16:
@@ -92,25 +96,32 @@ def generate_mel_spectrogram_prediction(file_path,
     
     ## g) convert stereo to mono and remove last dimension
     tensor = tf.reduce_mean(tensor, 1)
+    print(f'Tensor converted to mono output : shape {tensor.shape}')
 
     # 2 - Generate spectrogram
     spectrogram = tfio.audio.spectrogram(tensor, nfft=nfft, window=window, stride=stride)
+    print(f'Spectrogram generated from tensor : shape {spectrogram.shape}')
     
     # 3 - Convert to mel spectrogram
     mel_spectrogram = tfio.audio.melscale(spectrogram, rate=rate, mels=mels, fmin=fmin,fmax=fmax)
+    print(f'Mel_spectrogram generated from spectrofram : shape {mel_spectrogram.shape}')
 
     # 3 - Transpose output if asked
     if transpose == True:
         mel_spectrogram = tf.transpose(mel_spectrogram, perm=[1, 0])
+    print(f'Mel_spectrogram transposed : shape {mel_spectrogram.shape}')
     
     # 4 - Expand dim to get channel dimension
     mel_spectrogram = tf.expand_dims(mel_spectrogram, axis=-1)
+    print(f'Mel_spectrogram expanded with channel : shape {mel_spectrogram.shape}')
 
     # 5 - Convert gray to RGB (requested shape for densenet)
     mel_spectrogram = tf.image.grayscale_to_rgb(mel_spectrogram)
+    print(f'Mel_spectrogram expanded with 3 channels to mimic RGB : shape {mel_spectrogram.shape}')
 
     # 6 - Expand dim to have similar shape as model was trained in batches
     mel_spectrogram = tf.expand_dims(mel_spectrogram, axis=0)
+    print(f'Mel_spectrogram expanded with 1 dim as training was done in batch : shape {mel_spectrogram.shape}')
 
     return mel_spectrogram
 
@@ -123,21 +134,26 @@ def get_top_predictions_dict(spectrogram, model):
     '''
     # Get prediction array (len : 50 -> number of classes)
     prediction = model.predict(spectrogram)[0]
+    print('Prediction obtained from model')
     # Retrieve top 3 predictions with associated values
-    top3_pred_indexes = np.argpartition(prediction, -3)[-3:]
+    top3_pred_indexes = prediction.argsort()[-3:]
+    #top3_pred_indexes = np.argpartition(prediction, -3)[-3:]
     top3_pred_values = prediction[top3_pred_indexes]
+    print('Top 3 predictions retrieved')
 
     # Convert target number back into scientific name
     top3_pred_names = [REVERSE_DICT[k] for k in top3_pred_indexes]
 
     # Associate result in a dictionnary for API output
     dico_top3 = dict(zip(top3_pred_names,top3_pred_values))
-    
+    print(dico_top3)
     return dico_top3
 
 
 def get_model(path_to_model):
+    print('Begin model loading !')
     model = tf.keras.models.load_model(path_to_model)
+    print('Model loaded from file !')
     return model
 
 
