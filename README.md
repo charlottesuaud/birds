@@ -1,74 +1,30 @@
-# Data analysis
-- Document here the project: birds
-- Description: Project Description
-- Data Source:
-- Type of analysis:
+# Projects : BIRDS
+- Description: Bird song recognition model and API
+- Data Source: https://www.kaggle.com/monogenea/birdsongs-from-europe .
+50 european birds species from Xeno canto.
+All files were used (after train / test split) and only first 10 sec used to build model.
+- Type of analysis: Dataset analysis + classification model using Densenet transfer learning
 
 Please document the project the better you can.
 
-# Startup the project
+# Main libraries
+Pandas : Data analysis
+Tensorflow IO (for audio file input agnostic to file type)
+Tensorflow : for preprocessing : audio to mel spectrogram + dataset test/val creation
+	     for model training : fully integrated with preprocessing
+	     
+Model : CNN transfer learning from Densenet169 adaptated for our topic
 
-The initial setup.
 
-Create virtualenv and install the project:
-```bash
-sudo apt-get install virtualenv python-pip python-dev
-deactivate; virtualenv ~/venv ; source ~/venv/bin/activate ;\
-    pip install pip -U; pip install -r requirements.txt
-```
+# Methodology
+Dataset investigation and preprocessing tested through Notebooks -> see Notebooks folder
+Code packaged into py modules
+Model training done in Google Colab
+Mel spectrogram were used to train model to achieve best performance
 
-Unittest test:
-```bash
-make clean install test
-```
+Model exposed through fastAPI and deployed on Google Cloud Run using Docker
+Front end in Heroku : see dedicated git : git@github.com:benoitdb/birds-frontend.git
 
-Check for birds in gitlab.com/{group}.
-If your project is not set please add it:
+Project done during le Wagon data batch 589.
 
-- Create a new project on `gitlab.com/{group}/birds`
-- Then populate it:
-
-```bash
-##   e.g. if group is "{group}" and project_name is "birds"
-git remote add origin git@github.com:{group}/birds.git
-git push -u origin master
-git push -u origin --tags
-```
-
-Functionnal test with a script:
-
-```bash
-cd
-mkdir tmp
-cd tmp
-birds-run
-```
-
-# Install
-
-Go to `https://github.com/{group}/birds` to see the project, manage issues,
-setup you ssh public key, ...
-
-Create a python3 virtualenv and activate it:
-
-```bash
-sudo apt-get install virtualenv python-pip python-dev
-deactivate; virtualenv -ppython3 ~/venv ; source ~/venv/bin/activate
-```
-
-Clone the project and install it:
-
-```bash
-git clone git@github.com:{group}/birds.git
-cd birds
-pip install -r requirements.txt
-make clean install test                # install and test
-```
-Functionnal test with a script:
-
-```bash
-cd
-mkdir tmp
-cd tmp
-birds-run
-```
+Enjoy !
