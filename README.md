@@ -5,8 +5,6 @@
 All files were used (after train / test split) and only first 10 sec used to build model.
 - Type of analysis: Dataset analysis + classification model using Densenet transfer learning
 
-Please document the project the better you can.
-
 # Main libraries
 Pandas : Data analysis
 Tensorflow IO (for audio file input agnostic to file type)
